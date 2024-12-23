@@ -1,2 +1,0 @@
-Questo software è solo a titolo dimostrativo per mettere in evidenza la proprietà matematica GC57 sulla fattorizzazione di grandi semiprimi.
-Il programma così com'è non funzionerà se non verranno create alcune cartelle contenenti i semiprimi e le chiavi di fattorizzazione. Se siete interessati fatene richiesta e fornirò tutti i dati di cui necessita il programma. Naturalmente tutto in modo gratuito.
