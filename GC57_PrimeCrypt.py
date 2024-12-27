@@ -76,7 +76,6 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 from hashlib import sha3_256
 from Crypto.Protocol.KDF import PBKDF2
-
 # *******************************************************
 # * controllo file CFG che serve per individuare le cartelle
 # * dove prelevare i semiprimi e memorizzare il messaggio
@@ -402,7 +401,7 @@ class Finestra1(tk.Tk):
 
 # *************************************************
 # * FINESTRA Invia: In questa finestra troviamo un piccolo editor di testo
-# * e 3 pulsanti 'Carica allegato, Carica codifica, Invia file'
+# * e 4 pulsanti 'Carica allegato, Carica codifica, Invia file, crea file Hash'
 # * il pulsante Carica allegato permette di caricare un file da inviare assieme al testo
 # * questo file può assumere qualsiasi estensione: pdf, txt, jpg, ecc...
 # *
@@ -412,10 +411,38 @@ class Finestra1(tk.Tk):
 # * che serviranno a creare una chiave crittografica
 # *
 # * Il pulsante invia file memorizzerà nella cartella impostata il file criptato
+# *
+# * Crea file hash permetterà, se usato, di creare un file con lo stesso nome ma con estensione .hash
+# * Questo file hash verrà spedito, a parte, prima della spedizione del file criptato
+# * Questa ulteriore sicurezza permetterà di verificare che il file ricevuto sia lo stesso che è stato inviato
 # *************************************************
 class Finestra2(tk.Toplevel):
+
     def __init__(self, master):
         super().__init__(master)
+
+        def crea_file_hash():
+            filename_hash = filedialog.askopenfilename(
+                title="Apri file",
+                # initialdir="C:\\Users/Claugo/OneDrive/Documenti",
+                initialdir=programma_invia_a,
+                filetypes=(
+                    ("Tutti i File", "*.json*"),
+                ),
+            )
+            if filename_hash == "":
+                return
+
+            with open(filename_hash, "rb") as f:
+                data = f.read()
+            sha256_hash = sha3_256(data).hexdigest()
+
+            file_selezionato = filename_hash.replace(".json", "") + ".hash"
+
+            with open(file_selezionato, "w") as f:
+                f.write(sha256_hash)
+            messagebox.showinfo("OK","File HASH creato correttamente")
+            return
 
         def codifica():
             if filename == "":
@@ -469,6 +496,7 @@ class Finestra2(tk.Toplevel):
             ciphertext, tag = cipher.encrypt_and_digest(testo.encode("utf-8"))
 
             allegato_invia = e1_invia.get()
+            Mdata = time.strftime("%Y%H%M")
 
             # Iniziamo con la condizione per verificare se c'è un allegato
             if not allegato_invia or len(allegato_invia) < 6:
@@ -481,9 +509,8 @@ class Finestra2(tk.Toplevel):
                     "tag": tag.hex(),
                     "allegato": False
                 }
-
                 with open(
-                    f"{programma_invia_a}/GC57_PrimeCrypt_mess_{codice_selezionato}.json", "w"
+                    f"{programma_invia_a}/GC57_PrimeCrypt_M{Mdata}_{codice_selezionato}.json", "w"
                 ) as output_file:
                     json.dump(json_data, output_file)
 
@@ -514,7 +541,7 @@ class Finestra2(tk.Toplevel):
                 }
 
                 with open(
-                    f"{programma_invia_a}/GC57_PrimeCrypt_mess_{codice_selezionato}.json",
+                    f"{programma_invia_a}/GC57_PrimeCrypt_M{Mdata}_{codice_selezionato}.json",
                     "w",
                 ) as output_file:
                     json.dump(json_data, output_file)
@@ -597,6 +624,9 @@ class Finestra2(tk.Toplevel):
             wrap=tk.WORD,
         )
         tw1_invia.place(x=10, y=70)
+
+        px=500
+        py=480
         b1_invia = tk.Button(
             self,
             text="Invia File",
@@ -606,7 +636,20 @@ class Finestra2(tk.Toplevel):
             cursor="hand2",
             command=codifica,
         )
-        b1_invia.place(x=500, y=450)
+        b1_invia.place(x=px, y=py)
+
+        py=py+50
+        b4_invia = tk.Button(
+            self,
+            text="Crea File HASH",
+            fg="#006400",
+            width=15,
+            font="arial 12 bold",
+            cursor="hand2",
+            command=crea_file_hash,
+    
+        )
+        b4_invia.place(x=px, y=py)
 
         b2_invia = tk.Button(
             self,
@@ -652,12 +695,16 @@ class Finestra2(tk.Toplevel):
 
 
 # *************************************************
-# * FINESTRA Ricevi: in questa finestra troveremo un editor di testo e un pulsante 'carica file
-# * e una casella vuota con scritto 'Allegato'
+# * FINESTRA Ricevi: in questa finestra troveremo un editor di testo e un pulsante carica file,
+# * un pulsante verifica hash, e una casella vuota con scritto 'Allegato'
 # *
 # * La finestra editor permetterà di vedere in chiaro il messaggio testo ricevuto
 # * Nel caso il file contenga un allegato, comparirà il nome con l'estensione dell'allegato
 # * e questo verrà salvato nell'apposita cartella Allegati
+# *
+# * Verifica hash permetterà, se presente, di verificare a chi riceve il messaggio che il file sia integro
+# * e non sia stato manomesso. Questo hash verrà spedito a parte, prima della spedizione del file criptato
+# * Questa ulteriore sicurezza permette di verificare che il file ricevuto sia lo stesso che è stato inviato
 # *************************************************
 
 
@@ -665,12 +712,76 @@ class Finestra3(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
 
+        def verifica_file_hash():
+            """
+            Verifica che il codice hash calcolato su un file .json corrisponda
+            al codice hash contenuto in un file .hash selezionato.
+            """
+            try:
+                # Seleziona il file hash
+                filename_hash = filedialog.askopenfilename(
+                    title="Seleziona un file hash (.hash)",
+                    initialdir=programma_invia_a,
+                    filetypes=(("File HASH", "*.hash"), ("Tutti i File", "*.*")),
+                )
+
+                if not filename_hash:
+                    messagebox.showwarning("Attenzione", "Nessun file selezionato.")
+                    return
+
+                # Verifica che il file selezionato abbia estensione .hash
+                if not filename_hash.lower().endswith(".hash"):
+                    messagebox.showerror(
+                        "Errore", "Il file selezionato non ha estensione .hash!"
+                    )
+                    return
+
+                # Determina il nome del corrispondente file .json
+                corresponding_json = os.path.splitext(filename_hash)[0] + ".json"
+
+                # Verifica che il file .json esista
+                if not os.path.exists(corresponding_json):
+                    messagebox.showerror(
+                        "Errore",
+                        f"Il file originale corrispondente ({os.path.basename(corresponding_json)}) non esiste!",
+                    )
+                    return
+
+                # Leggi l'hash dal file .hash
+                with open(filename_hash, "r") as f:
+                    hash_memorizzato = f.read().strip()
+
+                if not hash_memorizzato:
+                    messagebox.showerror("Errore", "Il file .hash è vuoto!")
+                    return
+
+                # Leggi i dati del file .json
+                with open(corresponding_json, "rb") as f:
+                    data = f.read()
+
+                if not data:
+                    messagebox.showerror("Errore", "Il file originale è vuoto!")
+                    return
+
+                # Calcola l'hash SHA3-256 del file .json
+                hash_calcolato = sha3_256(data).hexdigest()
+
+                # Confronta gli hash
+                if hash_calcolato == hash_memorizzato:
+                    messagebox.showinfo("Successo", "Codice HASH corretto!")
+                else:
+                    messagebox.showerror("Attenzione", "Il codice HASH non corrisponde!")
+
+            except Exception as e:
+                # Gestione degli errori
+                messagebox.showerror("Errore", f"Si è verificato un errore:\n{e}")
+
         def apri_filer():
             global codice_selezionato, chiave, filename
             filename = filedialog.askopenfilename(
                 title="Apri file",
-                initialdir=f"{programma_riceve_a}",  # Cartella iniziale predefinita
-            # filetypes=(("Tutti i File", "*.*"),("File di testo", "*.txt")),
+                initialdir=f"{programma_riceve_a}",  
+                filetypes=(("Tutti i File", "*.json*"),),
             )
 
             if filename == "":
@@ -767,7 +878,6 @@ class Finestra3(tk.Toplevel):
                 e1_riceve.delete(0, tk.END)
                 e1_riceve.insert(0, allegato_nome)
 
-
                 # Genera la chiave AES
                 congiunzione_bytes = congiunzione.to_bytes(
                     (congiunzione.bit_length() + 7) // 8, byteorder="big"
@@ -789,8 +899,6 @@ class Finestra3(tk.Toplevel):
                 except ValueError as e:
                     messagebox.showerror("Errore", f"Errore durante la decriptazione dell'allegato: {e}")
                     return
-
-
 
         fondo_finestra = "#292421"
         colore_testo = "#E6E6FA"
@@ -829,6 +937,17 @@ class Finestra3(tk.Toplevel):
             command=apri_filer,
         )
         b1_riceve.place(x=10, y=450)
+
+        b2_riceve = tk.Button(
+            self,
+            text="Verifica HASH",
+            fg="#228B22",
+            width=15,
+            font="arial 12 bold",
+            cursor="hand2",
+            command=verifica_file_hash,
+        )
+        b2_riceve.place(x=10, y=500)
 
         px = 450
         py = 475
