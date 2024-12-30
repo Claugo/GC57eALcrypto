@@ -526,6 +526,11 @@ class Finestra2(tk.Toplevel):
                 cipher_allegato = AES.new(aes_key, AES.MODE_EAX)
                 allegato_ciphertext, allegato_tag = cipher_allegato.encrypt_and_digest(allegato_bytes)
 
+                # Cripta il nome dell'allegato
+                nome_cipher = AES.new(aes_key, AES.MODE_EAX)
+                allegato_nome_nonce = nome_cipher.nonce.hex()
+                allegato_nome_ciphertext, allegato_nome_tag = nome_cipher.encrypt_and_digest(allegato_invia.encode("utf-8"))
+
                 # Salva testo e allegato
                 json_data = {
                     "semiprimo": semiprimo,
@@ -537,7 +542,9 @@ class Finestra2(tk.Toplevel):
                     "allegato_nonce": cipher_allegato.nonce.hex(),
                     "allegato_ciphertext": allegato_ciphertext.hex(),
                     "allegato_tag": allegato_tag.hex(),
-                    "allegato_nome":allegato_invia
+                    "allegato_nome_nonce": allegato_nome_nonce,
+                    "allegato_nome_ciphertext": allegato_nome_ciphertext.hex(),
+                    "allegato_nome_tag": allegato_nome_tag.hex(),
                 }
 
                 with open(
@@ -874,7 +881,13 @@ class Finestra3(tk.Toplevel):
                 allegato = bytes.fromhex(dati_criptati.get("allegato_ciphertext", ""))
                 allegato_tag = bytes.fromhex(dati_criptati.get("allegato_tag", ""))
                 allegato_nonce = bytes.fromhex(dati_criptati.get("allegato_nonce", ""))
-                allegato_nome = dati_criptati.get("allegato_nome", "allegato_sconosciuto")
+                allegato_nome_nonce = bytes.fromhex(dati_criptati["allegato_nome_nonce"])
+                allegato_nome_ciphertext = bytes.fromhex(dati_criptati["allegato_nome_ciphertext"])
+                allegato_nome_tag = bytes.fromhex(dati_criptati["allegato_nome_tag"])
+
+                cipher_nome = AES.new(aes_key, AES.MODE_EAX, nonce=allegato_nome_nonce)
+                allegato_nome = cipher_nome.decrypt_and_verify(allegato_nome_ciphertext, allegato_nome_tag).decode("utf-8")
+
                 e1_riceve.delete(0, tk.END)
                 e1_riceve.insert(0, allegato_nome)
 
