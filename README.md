@@ -5,4 +5,4 @@ Questo processo di fattorizzazione, applicabile a numeri semiprimi già creati e
 
 Sono convinto che questo sistema aprirà nuove prospettive nel concetto di sicurezza e nello studio della teoria dei numeri. 
 
-Per saperne di più, visitate il sito www.gc57crypto.net che riporta esempi, filmati, e la spiegazione di come è stata trovata questa fantastica proprietà.
+
